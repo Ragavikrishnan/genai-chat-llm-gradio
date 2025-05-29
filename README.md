@@ -1,58 +1,75 @@
 ## Development and Deployment of a 'Chat with LLM' Application Using the Gradio Blocks Framework
-## AIM
-To design and deploy a "Chat with LLM" application by leveraging the Gradio Blocks framework, providing users an intuitive interface for interacting with a large language model.
 
-## PROBLEM STATEMENT
-Develop a user-friendly chatbot application using a large language model (LLM) to assist users with queries and generate conversational responses. The application should feature a responsive design, real-time text exchange, and customizable settings for response quality.
+### AIM:
+To design and deploy a "Chat with LLM" application by leveraging the Gradio Blocks UI framework to create an interactive interface for seamless user interaction with a large language model.
 
-## DESIGN STEPS
-### Step 1: Set Up the Environment
-- Install the necessary libraries (openai, gradio) and verify API access to the LLM.
-### Step 2: Create the Chat Functionality
- - Write a function to interact with the LLM using OpenAI's API (or another preferred LLM provider).
-### Step 3: Design the Gradio Blocks Interface
- - Use Gradio Blocks to build a structured, multi-component UI with features like:
- - A text box for user input.
- - A chat history display.
- - A clear button to reset the conversation.
-### Step 4: Deploy and Test
- - Host the Gradio app locally or on a server.
- - Test with diverse inputs to ensure robust performance.
+### PROBLEM STATEMENT:
+To create a simple web-based chat application that lets users talk to an AI model in real time using a friendly interface.
 
-## PROGRAM:
+### DESIGN STEPS:
+
+#### STEP 1:
+Set up all the necessary packages and API keys needed to run the model.
+
+#### STEP 2:
+Write a function to format the user’s messages and get responses from the AI model.
+
+#### STEP 3:
+Build a chat interface using Gradio with a textbox, a submit button, and a clear button.
+
+### PROGRAM:
 ```python
-import gradio as gr
-import openai
 import os
+import io
+import gradio as gr
+import IPython.display
+from PIL import Image
+import base64 
+import requests 
+requests.adapters.DEFAULT_TIMEOUT = 60
 
-# Load OpenAI API key securely
-openai.api_key = os.getenv("OPENAI_API_KEY")  # Make sure the environment variable is set
+from dotenv import load_dotenv, find_dotenv
+_ = load_dotenv(find_dotenv()) # read local .env file
+hf_api_key = os.environ['HF_API_KEY']
 
-def chat_with_llm(user_input):
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": user_input}]
-        )
-        return response["choices"][0]["message"]["content"]
-    except Exception as e:
-        return f"Error: {str(e)}"
+# Helper function
+import requests, json
+from text_generation import Client
 
-# Create Gradio interface
-interface = gr.Interface(
-    fn=chat_with_llm,
-    inputs="text",
-    outputs="text",
-    title="Chat with GPT-4",
-    description="Ask any question and get a response from GPT-4."
-)
+#FalcomLM-instruct endpoint on the text_generation library
+client = Client(os.environ['HF_API_FALCOM_BASE'], headers={"Authorization": f"Basic {hf_api_key}"}, timeout=120)
 
-# Launch the app
-interface.launch()
+def format_chat_prompt(message, chat_history):
+    prompt = ""
+    for turn in chat_history:
+        user_message, bot_message = turn
+        prompt = f"{prompt}\nUser: {user_message}\nAssistant: {bot_message}"
+    prompt = f"{prompt}\nUser: {message}\nAssistant:"
+    return prompt
+
+def respond(message, chat_history):
+        formatted_prompt = format_chat_prompt(message, chat_history)
+        bot_message = client.generate(formatted_prompt,
+                                     max_new_tokens=1024,
+                                     stop_sequences=["\nUser:", "<|endoftext|>"]).generated_text
+        chat_history.append((message, bot_message))
+        return "", chat_history
+
+with gr.Blocks() as demo:
+    chatbot = gr.Chatbot(height=500) 
+    msg = gr.Textbox(label="Prompt")
+    btn = gr.Button("Submit")
+    clear = gr.ClearButton(components=[msg, chatbot], value="Clear console")
+
+    btn.click(respond, inputs=[msg, chatbot], outputs=[msg, chatbot])
+    msg.submit(respond, inputs=[msg, chatbot], outputs=[msg, chatbot]) #Press enter to submit
+
+gr.close_all()
+demo.launch(share=True, server_port=7868)
 ```
-## OUTPUT:
-![Image (2)](https://github.com/user-attachments/assets/04ea865e-e045-497d-a6f3-6409050988e7)
+### OUTPUT:
 
+![image](https://github.com/user-attachments/assets/d32f1e98-f52d-4de6-b78a-d7e08dfebf1d)
 
-## RESULT
-The "Chat with LLM" application successfully enables interactive text-based communication with a large language model, offering a streamlined and visually appealing interface for users.
+### RESULT:
+A "Chat with LLM" application was successfully designed and deployed using the Gradio Blocks UI framework. The application provided an interactive interface that enabled smooth and dynamic communication between the user and the large language model.
